@@ -1,0 +1,224 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 0 0% 98%;
+    --foreground: 222 47% 11%;
+    --card: 0 0% 100%;
+    --card-foreground: 222 47% 11%;
+    --primary: 252 100% 60%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 220 14% 96%;
+    --secondary-foreground: 220 9% 46%;
+    --muted: 220 14% 96%;
+    --muted-foreground: 220 9% 46%;
+    --accent: 252 100% 97%;
+    --accent-foreground: 252 100% 50%;
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 220 13% 91%;
+    --input: 220 13% 91%;
+    --ring: 252 100% 60%;
+    --radius: 0.75rem;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground antialiased;
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  }
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  @apply bg-transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  @apply bg-border rounded-full hover:bg-muted-foreground/30;
+}
+
+/* Markdown styles */
+.markdown-body {
+  @apply text-foreground leading-relaxed;
+}
+
+.markdown-body h1,
+.markdown-body h2,
+.markdown-body h3,
+.markdown-body h4 {
+  @apply font-semibold mt-8 mb-4 text-foreground;
+}
+
+.markdown-body h1 {
+  @apply text-2xl;
+}
+
+.markdown-body h2 {
+  @apply text-xl border-b border-border pb-3;
+}
+
+.markdown-body h3 {
+  @apply text-lg;
+}
+
+.markdown-body p {
+  @apply my-4 text-foreground/80;
+}
+
+.markdown-body ul,
+.markdown-body ol {
+  @apply my-4 pl-6;
+}
+
+.markdown-body ul {
+  @apply list-disc;
+}
+
+.markdown-body ol {
+  @apply list-decimal;
+}
+
+.markdown-body li {
+  @apply my-2 text-foreground/80;
+}
+
+.markdown-body code {
+  @apply bg-muted px-1.5 py-0.5 rounded text-sm font-mono text-primary;
+}
+
+.markdown-body pre {
+  @apply bg-slate-900 text-slate-100 p-4 rounded-xl overflow-x-auto my-6;
+}
+
+.markdown-body pre code {
+  @apply bg-transparent p-0 text-inherit;
+}
+
+.markdown-body blockquote {
+  @apply border-l-4 border-primary/30 pl-4 italic my-4 text-muted-foreground;
+}
+
+.markdown-body img {
+  @apply max-w-full h-auto rounded-xl my-4 shadow-sm;
+}
+
+.markdown-body a {
+  @apply text-primary hover:underline font-medium;
+}
+
+.markdown-body hr {
+  @apply my-8 border-border;
+}
+
+.markdown-body table {
+  @apply w-full border-collapse my-4;
+}
+
+.markdown-body th,
+.markdown-body td {
+  @apply border border-border px-4 py-2.5 text-left;
+}
+
+.markdown-body th {
+  @apply bg-muted font-semibold text-sm;
+}
+
+/* Animations */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-fade-in {
+  animation: fadeIn 0.4s ease-out;
+}
+
+@keyframes slideInFromBottom {
+  from {
+    opacity: 0;
+    transform: translateY(16px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-in.slide-in-from-bottom-5 {
+  animation: slideInFromBottom 0.3s ease-out;
+}
+
+@keyframes shimmer {
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
+}
+
+.animate-shimmer {
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.4), transparent);
+  background-size: 200% 100%;
+  animation: shimmer 2s infinite;
+}
+
+/* Gradient text - Silicon Valley style */
+.gradient-text {
+  @apply bg-gradient-to-r from-violet-600 via-indigo-600 to-purple-600 bg-clip-text text-transparent;
+}
+
+/* Glass effect - Light mode */
+.glass {
+  @apply bg-white/80 backdrop-blur-xl shadow-sm border border-white/50;
+}
+
+/* Premium card shadow */
+.card-shadow {
+  box-shadow:
+    0 0 0 1px rgba(0, 0, 0, 0.03),
+    0 2px 4px rgba(0, 0, 0, 0.03),
+    0 12px 24px rgba(0, 0, 0, 0.04);
+}
+
+.card-shadow-lg {
+  box-shadow:
+    0 0 0 1px rgba(0, 0, 0, 0.03),
+    0 4px 8px rgba(0, 0, 0, 0.04),
+    0 24px 48px rgba(0, 0, 0, 0.06);
+}
+
+/* Premium button */
+.btn-premium {
+  @apply bg-gradient-to-r from-violet-600 to-indigo-600 text-white font-medium;
+  @apply hover:from-violet-700 hover:to-indigo-700;
+  @apply shadow-lg shadow-violet-500/25;
+  @apply transition-all duration-200;
+}
+
+.btn-premium:hover {
+  @apply shadow-xl shadow-violet-500/30 -translate-y-0.5;
+}
+
+/* Input focus ring */
+input:focus, textarea:focus {
+  @apply ring-2 ring-primary/20 border-primary/50;
+}
