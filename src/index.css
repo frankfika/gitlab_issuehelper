@@ -222,3 +222,60 @@
 input:focus, textarea:focus {
   @apply ring-2 ring-primary/20 border-primary/50;
 }
+
+/* Shake animation for errors */
+@keyframes shake {
+  0%, 100% { transform: translateX(0); }
+  10%, 30%, 50%, 70%, 90% { transform: translateX(-4px); }
+  20%, 40%, 60%, 80% { transform: translateX(4px); }
+}
+
+.animate-shake {
+  animation: shake 0.5s ease-in-out;
+}
+
+/* Progress bar animation for toast auto-close */
+@keyframes progress {
+  from { width: 100%; }
+  to { width: 0%; }
+}
+
+.animate-progress {
+  animation: progress 5s linear forwards;
+}
+
+/* Fade in animation */
+@keyframes fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.animate-in.fade-in {
+  animation: fade-in 0.2s ease-out;
+}
+
+/* Pulse animation enhancement */
+@keyframes gentle-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
+
+.animate-gentle-pulse {
+  animation: gentle-pulse 1.5s ease-in-out infinite;
+}
+
+/* Scale in animation */
+@keyframes scale-in {
+  from {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.animate-scale-in {
+  animation: scale-in 0.2s ease-out;
+}

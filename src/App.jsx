@@ -1,5 +1,5 @@
-import { useState, useEffect } from 'react'
-import { Sparkles, Copy, Check, Loader2, ImagePlus, X, Clipboard, FileText, RefreshCw, Settings, Send, ExternalLink, Zap } from 'lucide-react'
+import { useState, useEffect, useCallback } from 'react'
+import { Sparkles, Copy, Check, Loader2, ImagePlus, X, FileText, RefreshCw, Settings, Send, ExternalLink, Zap, Trash2, RotateCcw, Keyboard, Edit3, Eye, Maximize2 } from 'lucide-react'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import { Card, CardContent } from '@/components/ui/card'
@@ -10,7 +10,9 @@ import { generateIssueContent } from '@/lib/ai'
 import { useClipboardPaste, useCopyToClipboard } from '@/hooks/useClipboard'
 import { GitLabSettings } from '@/components/GitLabSettings'
 import { ProjectSelector } from '@/components/ProjectSelector'
+import { ImagePreviewModal } from '@/components/ImagePreviewModal'
 import { getGitLabProjects, createGitLabIssue, extractTitleFromContent, extractLabelsFromContent } from '@/lib/gitlab'
+import { saveToHistory, getHistory } from '@/lib/history'
 
 function GitLabIcon({ className }) {
   return (
@@ -32,6 +34,10 @@ function App() {
   const [submitResult, setSubmitResult] = useState(null)
   const [projects, setProjects] = useState([])
   const [selectedProject, setSelectedProject] = useState(null)
+  const [previewMode, setPreviewMode] = useState('preview') // 'preview' | 'edit'
+  const [editableContent, setEditableContent] = useState('')
+  const [previewImage, setPreviewImage] = useState(null)
+  const [showShortcuts, setShowShortcuts] = useState(false)
 
   const copy = useCopyToClipboard()
 
@@ -47,6 +53,11 @@ function App() {
   useEffect(() => {
     loadProjects()
   }, [])
+
+  // 同步生成内容到可编辑内容
+  useEffect(() => {
+    setEditableContent(generatedContent)
+  }, [generatedContent])
 
   // 处理图片粘贴
   const addImage = (dataUrl) => {
@@ -94,6 +105,7 @@ function App() {
     setIsGenerating(true)
     setError(null)
     setGeneratedContent('')
+    setPreviewMode('preview')
 
     try {
       await generateIssueContent({
@@ -111,22 +123,24 @@ function App() {
   }
 
   // 生成完整的复制内容（包含截图）
-  const getFullContent = () => {
-    let content = generatedContent
+  const getFullContent = useCallback(() => {
+    const content = previewMode === 'edit' ? editableContent : generatedContent
+    let fullContent = content
 
     if (images.length > 0) {
-      content += '\n\n---\n\n### 截图\n'
+      fullContent += '\n\n---\n\n### 截图\n'
       images.forEach((img, index) => {
-        content += `![截图 ${index + 1}](${img})\n\n`
+        fullContent += `![截图 ${index + 1}](${img})\n\n`
       })
     }
 
-    return content
-  }
+    return fullContent
+  }, [previewMode, editableContent, generatedContent, images])
 
   // 复制内容
   const handleCopy = async () => {
-    if (!generatedContent) return
+    const content = previewMode === 'edit' ? editableContent : generatedContent
+    if (!content) return
     const fullContent = getFullContent()
     const success = await copy(fullContent)
     if (success) {
@@ -135,9 +149,21 @@ function App() {
     }
   }
 
+  // 清空所有
+  const handleClear = () => {
+    setDescription('')
+    setImages([])
+    setGeneratedContent('')
+    setEditableContent('')
+    setError(null)
+    setSubmitResult(null)
+    setPreviewMode('preview')
+  }
+
   // 提交到 GitLab
   const handleSubmitToGitLab = async () => {
-    if (!generatedContent) return
+    const content = previewMode === 'edit' ? editableContent : generatedContent
+    if (!content) return
 
     if (!selectedProject) {
       setShowSettings(true)
@@ -148,11 +174,21 @@ function App() {
     setSubmitResult(null)
 
     try {
-      const title = extractTitleFromContent(generatedContent)
-      const labels = extractLabelsFromContent(generatedContent)
-      const description = getFullContent()
+      const title = extractTitleFromContent(content)
+      const labels = extractLabelsFromContent(content)
+      const issueDescription = getFullContent()
 
-      const issue = await createGitLabIssue({ title, description, labels, project: selectedProject })
+      const issue = await createGitLabIssue({ title, description: issueDescription, labels, project: selectedProject })
+
+      // 保存到历史记录
+      saveToHistory({
+        title,
+        content: issueDescription,
+        projectName: selectedProject.name,
+        issueUrl: issue.web_url,
+        issueId: issue.iid
+      })
+
       setSubmitResult({
         success: true,
         message: `Issue #${issue.iid} 已提交到 ${selectedProject.name}`,
@@ -168,6 +204,50 @@ function App() {
     }
   }
 
+  // 键盘快捷键
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      // Ctrl/Cmd + Enter: 生成
+      if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+        e.preventDefault()
+        if (!isGenerating && (description.trim() || images.length > 0)) {
+          handleGenerate()
+        }
+      }
+      // Escape: 关闭弹窗
+      if (e.key === 'Escape') {
+        if (previewImage) {
+          setPreviewImage(null)
+        } else if (showSettings) {
+          setShowSettings(false)
+        } else if (showShortcuts) {
+          setShowShortcuts(false)
+        }
+      }
+      // Ctrl/Cmd + Shift + C: 复制生成的内容
+      if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key === 'C') {
+        e.preventDefault()
+        handleCopy()
+      }
+    }
+
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [description, images, isGenerating, previewImage, showSettings, showShortcuts, handleCopy])
+
+  // Toast 自动消失
+  useEffect(() => {
+    if (submitResult) {
+      const timer = setTimeout(() => {
+        setSubmitResult(null)
+      }, 5000)
+      return () => clearTimeout(timer)
+    }
+  }, [submitResult])
+
+  // 获取实际显示的内容
+  const displayContent = previewMode === 'edit' ? editableContent : generatedContent
+
   return (
     <div className="min-h-screen bg-gradient-to-b from-slate-50 to-white">
       {/* Header */}
@@ -178,22 +258,33 @@ function App() {
               <GitLabIcon className="w-5 h-5 text-white" />
             </div>
             <div>
-              <h1 className="text-lg font-semibold text-slate-900">GitLab Issue Generator</h1>
-              <p className="text-xs text-slate-500">AI-powered issue creation</p>
+              <h1 className="text-lg font-semibold text-slate-900">GitLab Issue 生成器</h1>
+              <p className="text-xs text-slate-500">AI 智能生成规范 Issue</p>
             </div>
           </div>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => setShowSettings(true)}
-            className={cn(
-              'rounded-full px-4',
-              projects.length > 0 && 'border-green-300 text-green-700 bg-green-50 hover:bg-green-100'
-            )}
-          >
-            <Settings className="w-4 h-4 mr-1.5" />
-            {projects.length > 0 ? `${projects.length} Projects` : 'Configure'}
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setShowShortcuts(true)}
+              className="text-slate-500 hover:text-slate-700"
+              title="快捷键"
+            >
+              <Keyboard className="w-4 h-4" />
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setShowSettings(true)}
+              className={cn(
+                'rounded-full px-4',
+                projects.length > 0 && 'border-green-300 text-green-700 bg-green-50 hover:bg-green-100'
+              )}
+            >
+              <Settings className="w-4 h-4 mr-1.5" />
+              {projects.length > 0 ? `${projects.length} 个项目` : '配置'}
+            </Button>
+          </div>
         </div>
       </header>
 
@@ -205,32 +296,43 @@ function App() {
             {/* Hero Text */}
             <div className="mb-8">
               <h2 className="text-3xl font-bold text-slate-900 mb-2">
-                Describe your issue
+                描述你的需求
               </h2>
               <p className="text-slate-500">
-                Our AI will generate a professional, well-structured issue for you.
+                AI 将为你生成专业、规范的 GitLab Issue
               </p>
             </div>
 
             {/* Description */}
             <div className="space-y-2">
-              <label className="text-sm font-medium text-slate-700">Description</label>
+              <div className="flex items-center justify-between">
+                <label className="text-sm font-medium text-slate-700">问题描述</label>
+                <span className={cn(
+                  "text-xs transition-colors",
+                  description.length > 500 ? "text-amber-600" : "text-slate-400"
+                )}>
+                  {description.length} 字
+                </span>
+              </div>
               <Textarea
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
-                placeholder="Describe the bug you encountered or the feature you need...
+                placeholder="描述你遇到的 Bug 或需要的功能...
 
-Example:
-• Login button not responding on mobile
-• Need batch export functionality
-• Dashboard charts loading slowly"
+示例：
+• 手机端登录按钮点击无响应
+• 需要批量导出功能
+• 仪表盘图表加载很慢"
                 className="min-h-[180px] resize-none text-base bg-white border-slate-200 focus:border-violet-400 focus:ring-violet-400/20 rounded-xl shadow-sm"
               />
+              <p className="text-xs text-slate-400">
+                提示：按 <kbd className="px-1.5 py-0.5 bg-slate-100 rounded text-slate-600 font-mono">Ctrl</kbd> + <kbd className="px-1.5 py-0.5 bg-slate-100 rounded text-slate-600 font-mono">Enter</kbd> 快速生成
+              </p>
             </div>
 
             {/* Image Upload */}
             <div className="space-y-2">
-              <label className="text-sm font-medium text-slate-700">Screenshots (optional)</label>
+              <label className="text-sm font-medium text-slate-700">截图（可选）</label>
               <div
                 className={cn(
                   'relative border-2 border-dashed rounded-xl p-8 text-center transition-all duration-200 cursor-pointer',
@@ -254,10 +356,10 @@ Example:
                   </div>
                   <div>
                     <p className="font-medium text-slate-700">
-                      {isDragging ? 'Drop to upload' : 'Add screenshots'}
+                      {isDragging ? '松开以上传' : '添加截图'}
                     </p>
                     <p className="text-sm text-slate-500 mt-1">
-                      Paste with Ctrl+V or drag & drop
+                      按 Ctrl+V 粘贴 或 拖拽图片到这里
                     </p>
                   </div>
                 </div>
@@ -268,13 +370,26 @@ Example:
                 <div className="grid grid-cols-3 gap-3 mt-4">
                   {images.map((img, index) => (
                     <div key={index} className="relative group aspect-video rounded-lg overflow-hidden bg-slate-100 shadow-sm">
-                      <img src={img} alt={`Screenshot ${index + 1}`} className="w-full h-full object-cover" />
-                      <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                      <img
+                        src={img}
+                        alt={`截图 ${index + 1}`}
+                        className="w-full h-full object-cover cursor-pointer"
+                        onClick={() => setPreviewImage(img)}
+                      />
+                      <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
+                        <button
+                          onClick={() => setPreviewImage(img)}
+                          className="p-2 bg-white rounded-full hover:bg-slate-100 transition-colors"
+                          title="放大查看"
+                        >
+                          <Maximize2 className="w-4 h-4 text-slate-700" />
+                        </button>
                         <button
                           onClick={() => removeImage(index)}
-                          className="p-2 bg-white rounded-full hover:bg-slate-100 transition-colors"
+                          className="p-2 bg-white rounded-full hover:bg-red-50 transition-colors"
+                          title="删除"
                         >
-                          <X className="w-4 h-4 text-slate-700" />
+                          <X className="w-4 h-4 text-red-600" />
                         </button>
                       </div>
                       <div className="absolute top-2 left-2 px-2 py-0.5 bg-black/50 rounded-full text-xs text-white font-medium">
@@ -288,29 +403,41 @@ Example:
 
             {/* Error */}
             {error && (
-              <div className="p-4 rounded-xl bg-red-50 border border-red-100 text-red-700 text-sm">
+              <div className="p-4 rounded-xl bg-red-50 border border-red-100 text-red-700 text-sm animate-shake">
                 {error}
               </div>
             )}
 
-            {/* Generate Button */}
-            <Button
-              onClick={handleGenerate}
-              disabled={isGenerating}
-              className="w-full h-12 text-base rounded-xl btn-premium"
-            >
-              {isGenerating ? (
-                <>
-                  <Loader2 className="w-5 h-5 mr-2 animate-spin" />
-                  Generating...
-                </>
-              ) : (
-                <>
-                  <Zap className="w-5 h-5 mr-2" />
-                  Generate Issue
-                </>
+            {/* Action Buttons */}
+            <div className="flex gap-3">
+              <Button
+                onClick={handleGenerate}
+                disabled={isGenerating}
+                className="flex-1 h-12 text-base rounded-xl btn-premium"
+              >
+                {isGenerating ? (
+                  <>
+                    <Loader2 className="w-5 h-5 mr-2 animate-spin" />
+                    生成中...
+                  </>
+                ) : (
+                  <>
+                    <Zap className="w-5 h-5 mr-2" />
+                    生成 Issue
+                  </>
+                )}
+              </Button>
+              {(description || images.length > 0 || generatedContent) && (
+                <Button
+                  variant="outline"
+                  onClick={handleClear}
+                  className="h-12 px-4 rounded-xl text-slate-600 hover:text-red-600 hover:border-red-200"
+                  title="清空所有"
+                >
+                  <RotateCcw className="w-5 h-5" />
+                </Button>
               )}
-            </Button>
+            </div>
           </div>
 
           {/* Right Panel - Preview */}
@@ -321,13 +448,41 @@ Example:
                 <div className="flex items-center justify-between px-5 py-4 border-b border-slate-100 bg-slate-50/50">
                   <div className="flex items-center gap-2">
                     <FileText className="w-4 h-4 text-slate-400" />
-                    <span className="text-sm font-medium text-slate-700">Preview</span>
+                    <span className="text-sm font-medium text-slate-700">预览</span>
+                    {displayContent && (
+                      <div className="flex items-center ml-2 bg-white rounded-lg border border-slate-200 p-0.5">
+                        <button
+                          onClick={() => setPreviewMode('preview')}
+                          className={cn(
+                            "px-2.5 py-1 text-xs font-medium rounded-md transition-all",
+                            previewMode === 'preview'
+                              ? 'bg-violet-100 text-violet-700'
+                              : 'text-slate-500 hover:text-slate-700'
+                          )}
+                        >
+                          <Eye className="w-3 h-3 inline-block mr-1" />
+                          预览
+                        </button>
+                        <button
+                          onClick={() => setPreviewMode('edit')}
+                          className={cn(
+                            "px-2.5 py-1 text-xs font-medium rounded-md transition-all",
+                            previewMode === 'edit'
+                              ? 'bg-violet-100 text-violet-700'
+                              : 'text-slate-500 hover:text-slate-700'
+                          )}
+                        >
+                          <Edit3 className="w-3 h-3 inline-block mr-1" />
+                          编辑
+                        </button>
+                      </div>
+                    )}
                   </div>
-                  {generatedContent && (
+                  {displayContent && (
                     <div className="flex items-center gap-2">
                       <Button variant="ghost" size="sm" onClick={handleGenerate} disabled={isGenerating} className="text-slate-600 hover:text-slate-900">
                         <RefreshCw className={cn('w-4 h-4 mr-1.5', isGenerating && 'animate-spin')} />
-                        Regenerate
+                        重新生成
                       </Button>
                       <Button
                         variant={copied ? 'default' : 'outline'}
@@ -341,12 +496,12 @@ Example:
                         {copied ? (
                           <>
                             <Check className="w-4 h-4 mr-1.5" />
-                            Copied
+                            已复制
                           </>
                         ) : (
                           <>
                             <Copy className="w-4 h-4 mr-1.5" />
-                            Copy
+                            复制
                           </>
                         )}
                       </Button>
@@ -355,7 +510,7 @@ Example:
                 </div>
 
                 {/* GitLab Submit Bar */}
-                {generatedContent && (
+                {displayContent && (
                   <div className="flex items-center justify-between px-5 py-3 border-b border-slate-100 bg-gradient-to-r from-violet-50 to-indigo-50">
                     <ProjectSelector
                       selectedProject={selectedProject}
@@ -371,12 +526,12 @@ Example:
                       {isSubmitting ? (
                         <>
                           <Loader2 className="w-4 h-4 mr-1.5 animate-spin" />
-                          Submitting...
+                          提交中...
                         </>
                       ) : (
                         <>
                           <Send className="w-4 h-4 mr-1.5" />
-                          Submit to GitLab
+                          提交到 GitLab
                         </>
                       )}
                     </Button>
@@ -385,22 +540,39 @@ Example:
 
                 {/* Content */}
                 <div className="flex-1 overflow-auto p-6">
-                  {!generatedContent && !isGenerating ? (
+                  {!displayContent && !isGenerating ? (
                     <div className="h-full flex items-center justify-center">
                       <div className="text-center max-w-xs">
                         <div className="w-16 h-16 rounded-2xl bg-slate-100 flex items-center justify-center mx-auto mb-4">
                           <Sparkles className="w-8 h-8 text-slate-300" />
                         </div>
-                        <h3 className="font-medium text-slate-700 mb-1">Ready to generate</h3>
+                        <h3 className="font-medium text-slate-700 mb-1">准备就绪</h3>
                         <p className="text-sm text-slate-500">
-                          Enter a description or upload screenshots, and AI will create a professional issue for you.
+                          在左侧输入描述或上传截图，AI 将为你生成专业的 Issue
                         </p>
+                        {projects.length === 0 && (
+                          <Button
+                            variant="link"
+                            onClick={() => setShowSettings(true)}
+                            className="mt-4 text-violet-600"
+                          >
+                            <Settings className="w-4 h-4 mr-1" />
+                            先配置 GitLab 项目
+                          </Button>
+                        )}
                       </div>
                     </div>
+                  ) : previewMode === 'edit' ? (
+                    <Textarea
+                      value={editableContent}
+                      onChange={(e) => setEditableContent(e.target.value)}
+                      className="w-full h-full min-h-[400px] resize-none font-mono text-sm bg-white border-slate-200 focus:border-violet-400 focus:ring-violet-400/20 rounded-xl"
+                      placeholder="编辑生成的内容..."
+                    />
                   ) : (
                     <div className="markdown-body">
                       <ReactMarkdown remarkPlugins={[remarkGfm]}>
-                        {generatedContent}
+                        {displayContent}
                       </ReactMarkdown>
                       {isGenerating && (
                         <span className="inline-block w-0.5 h-5 bg-violet-500 animate-pulse ml-0.5" />
@@ -408,14 +580,15 @@ Example:
                       {/* 显示截图预览 */}
                       {!isGenerating && images.length > 0 && (
                         <div className="mt-8 pt-8 border-t border-slate-200">
-                          <h3 className="text-base font-semibold text-slate-900 mb-4">Screenshots</h3>
+                          <h3 className="text-base font-semibold text-slate-900 mb-4">截图</h3>
                           <div className="grid grid-cols-2 gap-4">
                             {images.map((img, index) => (
                               <img
                                 key={index}
                                 src={img}
-                                alt={`Screenshot ${index + 1}`}
-                                className="rounded-xl border border-slate-200 shadow-sm"
+                                alt={`截图 ${index + 1}`}
+                                className="rounded-xl border border-slate-200 shadow-sm cursor-pointer hover:shadow-md transition-shadow"
+                                onClick={() => setPreviewImage(img)}
                               />
                             ))}
                           </div>
@@ -457,14 +630,23 @@ Example:
                 {submitResult.message}
               </p>
               {submitResult.url && (
-                <a
-                  href={submitResult.url}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-sm text-violet-600 hover:text-violet-700 flex items-center gap-1 mt-1 font-medium"
-                >
-                  View Issue <ExternalLink className="w-3 h-3" />
-                </a>
+                <div className="flex items-center gap-3 mt-2">
+                  <a
+                    href={submitResult.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-sm text-violet-600 hover:text-violet-700 flex items-center gap-1 font-medium"
+                  >
+                    查看 Issue <ExternalLink className="w-3 h-3" />
+                  </a>
+                  <button
+                    onClick={handleClear}
+                    className="text-sm text-slate-500 hover:text-slate-700 flex items-center gap-1"
+                  >
+                    <Trash2 className="w-3 h-3" />
+                    清空继续
+                  </button>
+                </div>
               )}
             </div>
             <button
@@ -474,7 +656,69 @@ Example:
               <X className="w-4 h-4 text-slate-400" />
             </button>
           </div>
+          {/* 自动关闭进度条 */}
+          <div className="mt-3 h-1 bg-slate-100 rounded-full overflow-hidden">
+            <div className={cn(
+              "h-full rounded-full animate-progress",
+              submitResult.success ? "bg-green-500" : "bg-red-500"
+            )} />
+          </div>
         </div>
+      )}
+
+      {/* 快捷键弹窗 */}
+      {showShortcuts && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/20 backdrop-blur-sm" onClick={() => setShowShortcuts(false)} />
+          <div className="relative z-10 w-full max-w-md bg-white rounded-2xl shadow-2xl p-6">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-lg font-semibold text-slate-900">键盘快捷键</h2>
+              <button onClick={() => setShowShortcuts(false)} className="p-2 hover:bg-slate-100 rounded-xl">
+                <X className="w-5 h-5 text-slate-400" />
+              </button>
+            </div>
+            <div className="space-y-3">
+              <div className="flex items-center justify-between py-2">
+                <span className="text-slate-600">生成 Issue</span>
+                <div className="flex gap-1">
+                  <kbd className="px-2 py-1 bg-slate-100 rounded text-sm font-mono">Ctrl</kbd>
+                  <span className="text-slate-400">+</span>
+                  <kbd className="px-2 py-1 bg-slate-100 rounded text-sm font-mono">Enter</kbd>
+                </div>
+              </div>
+              <div className="flex items-center justify-between py-2">
+                <span className="text-slate-600">复制内容</span>
+                <div className="flex gap-1">
+                  <kbd className="px-2 py-1 bg-slate-100 rounded text-sm font-mono">Ctrl</kbd>
+                  <span className="text-slate-400">+</span>
+                  <kbd className="px-2 py-1 bg-slate-100 rounded text-sm font-mono">Shift</kbd>
+                  <span className="text-slate-400">+</span>
+                  <kbd className="px-2 py-1 bg-slate-100 rounded text-sm font-mono">C</kbd>
+                </div>
+              </div>
+              <div className="flex items-center justify-between py-2">
+                <span className="text-slate-600">关闭弹窗</span>
+                <kbd className="px-2 py-1 bg-slate-100 rounded text-sm font-mono">Esc</kbd>
+              </div>
+              <div className="flex items-center justify-between py-2">
+                <span className="text-slate-600">粘贴截图</span>
+                <div className="flex gap-1">
+                  <kbd className="px-2 py-1 bg-slate-100 rounded text-sm font-mono">Ctrl</kbd>
+                  <span className="text-slate-400">+</span>
+                  <kbd className="px-2 py-1 bg-slate-100 rounded text-sm font-mono">V</kbd>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 图片预览弹窗 */}
+      {previewImage && (
+        <ImagePreviewModal
+          image={previewImage}
+          onClose={() => setPreviewImage(null)}
+        />
       )}
 
       {/* GitLab Settings Modal */}

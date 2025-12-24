@@ -43,7 +43,7 @@ export function ProjectSelector({ selectedProject, onSelect, onOpenSettings }) {
         className="flex items-center gap-2 px-4 py-2 text-sm text-slate-600 hover:text-violet-600 border border-dashed border-slate-300 rounded-full hover:border-violet-400 transition-all"
       >
         <Settings className="w-4 h-4" />
-        <span>Configure project</span>
+        <span>配置项目</span>
       </button>
     )
   }
@@ -60,7 +60,7 @@ export function ProjectSelector({ selectedProject, onSelect, onOpenSettings }) {
         )}
       >
         <span className="flex-1 text-left truncate">
-          {selectedProject?.name || 'Select project'}
+          {selectedProject?.name || '选择项目'}
         </span>
         <ChevronDown className={cn('w-4 h-4 transition-transform text-slate-400', open && 'rotate-180')} />
       </button>
@@ -104,7 +104,7 @@ export function ProjectSelector({ selectedProject, onSelect, onOpenSettings }) {
               className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-slate-500 hover:text-slate-700 hover:bg-slate-50 transition-colors"
             >
               <Settings className="w-4 h-4" />
-              <span>Manage projects</span>
+              <span>管理项目</span>
             </button>
           </div>
         </div>

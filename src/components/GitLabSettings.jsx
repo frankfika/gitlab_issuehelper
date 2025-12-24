@@ -23,7 +23,7 @@ function ProjectForm({ project, onSave, onCancel, onDelete }) {
 
   const handleTest = async () => {
     if (!config.gitlabUrl || !config.token || !config.projectId) {
-      setTestResult({ success: false, message: 'Please fill in URL, Token and Project ID' })
+      setTestResult({ success: false, message: '请填写 URL、Token 和项目 ID' })
       return
     }
 
@@ -34,7 +34,7 @@ function ProjectForm({ project, onSave, onCancel, onDelete }) {
       const projectInfo = await testGitLabConnection(config)
       setTestResult({
         success: true,
-        message: `Connected! Project: ${projectInfo.name_with_namespace}`
+        message: `连接成功！项目：${projectInfo.name_with_namespace}`
       })
       if (!config.name) {
         setConfig(prev => ({ ...prev, name: projectInfo.name }))
@@ -48,7 +48,7 @@ function ProjectForm({ project, onSave, onCancel, onDelete }) {
 
   const handleSave = async () => {
     if (!config.name || !config.gitlabUrl || !config.token || !config.projectId) {
-      setTestResult({ success: false, message: 'Please fill in all fields' })
+      setTestResult({ success: false, message: '请填写所有字段' })
       return
     }
 
@@ -68,18 +68,18 @@ function ProjectForm({ project, onSave, onCancel, onDelete }) {
   return (
     <div className="space-y-4">
       <div>
-        <label className="block text-sm font-medium text-slate-700 mb-1.5">Project Name</label>
+        <label className="block text-sm font-medium text-slate-700 mb-1.5">项目名称</label>
         <input
           type="text"
           value={config.name}
           onChange={(e) => setConfig({ ...config, name: e.target.value })}
-          placeholder="e.g., Frontend App"
+          placeholder="例如：前端应用"
           className="w-full px-3 py-2.5 bg-white border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-violet-500/20 focus:border-violet-400 transition-colors"
         />
       </div>
 
       <div>
-        <label className="block text-sm font-medium text-slate-700 mb-1.5">GitLab URL</label>
+        <label className="block text-sm font-medium text-slate-700 mb-1.5">GitLab 地址</label>
         <input
           type="url"
           value={config.gitlabUrl}
@@ -90,7 +90,7 @@ function ProjectForm({ project, onSave, onCancel, onDelete }) {
       </div>
 
       <div>
-        <label className="block text-sm font-medium text-slate-700 mb-1.5">Personal Access Token</label>
+        <label className="block text-sm font-medium text-slate-700 mb-1.5">访问令牌</label>
         <input
           type="password"
           value={config.token}
@@ -99,25 +99,25 @@ function ProjectForm({ project, onSave, onCancel, onDelete }) {
           className="w-full px-3 py-2.5 bg-white border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-violet-500/20 focus:border-violet-400 transition-colors"
         />
         <p className="text-xs text-slate-500 mt-1.5">
-          Requires <code className="bg-slate-100 px-1 py-0.5 rounded text-violet-600">api</code> scope.{' '}
+          需要 <code className="bg-slate-100 px-1 py-0.5 rounded text-violet-600">api</code> 权限范围。{' '}
           <a
             href="https://docs.gitlab.com/ee/user/profile/personal_access_tokens.html"
             target="_blank"
             rel="noopener noreferrer"
             className="text-violet-600 hover:underline inline-flex items-center gap-0.5"
           >
-            Learn more <ExternalLink className="w-3 h-3" />
+            查看文档 <ExternalLink className="w-3 h-3" />
           </a>
         </p>
       </div>
 
       <div>
-        <label className="block text-sm font-medium text-slate-700 mb-1.5">Project ID</label>
+        <label className="block text-sm font-medium text-slate-700 mb-1.5">项目 ID</label>
         <input
           type="text"
           value={config.projectId}
           onChange={(e) => setConfig({ ...config, projectId: e.target.value })}
-          placeholder="12345 or group/project"
+          placeholder="12345 或 group/project"
           className="w-full px-3 py-2.5 bg-white border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-violet-500/20 focus:border-violet-400 transition-colors"
         />
       </div>
@@ -143,10 +143,10 @@ function ProjectForm({ project, onSave, onCancel, onDelete }) {
           {testing ? (
             <>
               <Loader2 className="w-4 h-4 mr-1.5 animate-spin" />
-              Testing...
+              测试中...
             </>
           ) : (
-            'Test Connection'
+            '测试连接'
           )}
         </Button>
         <Button
@@ -157,12 +157,12 @@ function ProjectForm({ project, onSave, onCancel, onDelete }) {
           {saving ? (
             <>
               <Loader2 className="w-4 h-4 mr-1.5 animate-spin" />
-              Saving...
+              保存中...
             </>
           ) : (
             <>
               <Check className="w-4 h-4 mr-1.5" />
-              Save
+              保存
             </>
           )}
         </Button>
@@ -170,7 +170,7 @@ function ProjectForm({ project, onSave, onCancel, onDelete }) {
 
       <div className="flex gap-2 pt-1">
         <Button variant="ghost" onClick={onCancel} className="flex-1 text-slate-600">
-          Cancel
+          取消
         </Button>
         {project?.id && (
           <Button
@@ -197,7 +197,7 @@ function ProjectItem({ project, onEdit, onDelete }) {
       </div>
       <div className="flex gap-1 ml-3 opacity-0 group-hover:opacity-100 transition-opacity">
         <Button variant="ghost" size="sm" onClick={() => onEdit(project)} className="text-slate-600 hover:text-slate-900">
-          Edit
+          编辑
         </Button>
         <Button
           variant="ghost"
@@ -259,8 +259,8 @@ export function GitLabSettings({ open, onClose, onProjectsChange }) {
               <Settings className="w-5 h-5 text-white" />
             </div>
             <div>
-              <h2 className="text-lg font-semibold text-slate-900">GitLab Projects</h2>
-              <p className="text-sm text-slate-500">Manage your connected projects</p>
+              <h2 className="text-lg font-semibold text-slate-900">GitLab 项目配置</h2>
+              <p className="text-sm text-slate-500">管理已连接的项目</p>
             </div>
           </div>
           <button
@@ -313,7 +313,7 @@ export function GitLabSettings({ open, onClose, onProjectsChange }) {
               className="w-full rounded-xl border-dashed border-2 h-12 text-slate-600 hover:text-violet-600 hover:border-violet-300"
             >
               <Plus className="w-5 h-5 mr-2" />
-              Add Project
+              添加项目
             </Button>
           )}
 
@@ -323,9 +323,9 @@ export function GitLabSettings({ open, onClose, onProjectsChange }) {
               <div className="w-16 h-16 rounded-2xl bg-slate-100 flex items-center justify-center mx-auto mb-4">
                 <Settings className="w-8 h-8 text-slate-300" />
               </div>
-              <h3 className="font-medium text-slate-700 mb-1">No projects yet</h3>
+              <h3 className="font-medium text-slate-700 mb-1">暂无项目</h3>
               <p className="text-sm text-slate-500">
-                Add your first GitLab project to get started
+                添加你的第一个 GitLab 项目开始使用
               </p>
             </div>
           )}
