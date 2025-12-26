@@ -551,14 +551,19 @@ function App() {
                           在左侧输入描述或上传截图，AI 将为你生成专业的 Issue
                         </p>
                         {projects.length === 0 && (
-                          <Button
-                            variant="link"
-                            onClick={() => setShowSettings(true)}
-                            className="mt-4 text-violet-600"
-                          >
-                            <Settings className="w-4 h-4 mr-1" />
-                            先配置 GitLab 项目
-                          </Button>
+                          <>
+                            <Button
+                              variant="link"
+                              onClick={() => setShowSettings(true)}
+                              className="mt-4 text-violet-600"
+                            >
+                              <Settings className="w-4 h-4 mr-1" />
+                              先配置 GitLab 项目
+                            </Button>
+                            <p className="text-xs text-slate-400 mt-2">
+                              在配置里填写 GitLab 地址、访问令牌、项目 ID，信息会保存在浏览器 Cookie。
+                            </p>
+                          </>
                         )}
                       </div>
                     </div>

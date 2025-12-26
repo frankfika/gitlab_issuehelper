@@ -231,12 +231,12 @@ gitlab_issue_reporter/
 
 ## 数据存储
 
-应用使用浏览器 `localStorage` 存储以下数据：
+应用使用浏览器 Cookie / `localStorage` 存储以下数据：
 
 | Key | 说明 |
 |-----|------|
-| `gitlab_projects` | GitLab 项目配置列表（包含 Token） |
-| `issue_history` | Issue 提交历史记录（最多 20 条） |
+| `gitlab_projects` | GitLab 项目配置列表（包含 Token，保存于 Cookie） |
+| `issue_history` | Issue 提交历史记录（最多 20 条，保存于 localStorage） |
 
 > ⚠️ 安全提示：Token 存储在浏览器本地，请注意保护你的设备安全
 

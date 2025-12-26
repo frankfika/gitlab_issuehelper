@@ -273,6 +273,12 @@ export function GitLabSettings({ open, onClose, onProjectsChange }) {
 
         {/* Content */}
         <div className="flex-1 overflow-auto p-6 space-y-4">
+          <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-600">
+            <p className="font-medium text-slate-700">配置指引</p>
+            <p className="mt-1">
+              点击「添加项目」填写 GitLab 地址、访问令牌、项目 ID。保存后会写入浏览器 Cookie，下次打开自动加载。
+            </p>
+          </div>
           {/* Project List */}
           {projects.length > 0 && !showAddForm && !editingProject && (
             <div className="space-y-3">

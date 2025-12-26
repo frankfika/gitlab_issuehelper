@@ -1,20 +1,74 @@
 // GitLab API 集成 - 支持多项目配置
 
 const STORAGE_KEY = 'gitlab_projects'
+const COOKIE_MAX_AGE_DAYS = 365
+
+function getCookieValue(name) {
+  if (typeof document === 'undefined') return ''
+  const cookies = document.cookie ? document.cookie.split('; ') : []
+  for (const cookie of cookies) {
+    const [key, ...rest] = cookie.split('=')
+    if (key === name) {
+      return rest.join('=')
+    }
+  }
+  return ''
+}
+
+function setCookieValue(name, value, days) {
+  if (typeof document === 'undefined') return false
+  const maxAge = days ? `; max-age=${days * 24 * 60 * 60}` : ''
+  const secure = typeof window !== 'undefined' && window.location?.protocol === 'https:' ? '; Secure' : ''
+  document.cookie = `${name}=${value}; path=/; SameSite=Lax${maxAge}${secure}`
+  return getCookieValue(name) === value
+}
+
+function readProjectsFromCookie() {
+  const raw = getCookieValue(STORAGE_KEY)
+  if (!raw) return null
+  try {
+    const parsed = JSON.parse(decodeURIComponent(raw))
+    return Array.isArray(parsed) ? parsed : null
+  } catch {
+    return null
+  }
+}
+
+function readProjectsFromLocalStorage() {
+  if (typeof localStorage === 'undefined') return null
+  try {
+    const stored = localStorage.getItem(STORAGE_KEY)
+    if (!stored) return null
+    const parsed = JSON.parse(stored)
+    return Array.isArray(parsed) ? parsed : null
+  } catch {
+    return null
+  }
+}
+
+function writeProjectsToCookie(projects) {
+  const serialized = encodeURIComponent(JSON.stringify(projects))
+  const stored = setCookieValue(STORAGE_KEY, serialized, COOKIE_MAX_AGE_DAYS)
+  if (!stored && typeof localStorage !== 'undefined') {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(projects))
+  }
+}
 
 // 获取所有项目配置
 export function getGitLabProjects() {
-  try {
-    const stored = localStorage.getItem(STORAGE_KEY)
-    return stored ? JSON.parse(stored) : []
-  } catch {
-    return []
+  const fromCookie = readProjectsFromCookie()
+  if (fromCookie) return fromCookie
+  const fromLocalStorage = readProjectsFromLocalStorage()
+  if (fromLocalStorage) {
+    writeProjectsToCookie(fromLocalStorage)
+    return fromLocalStorage
   }
+  return []
 }
 
 // 保存所有项目配置
 export function saveGitLabProjects(projects) {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(projects))
+  writeProjectsToCookie(projects)
 }
 
 // 添加项目
