@@ -13,13 +13,15 @@ import {
 function ProjectForm({ project, onSave, onCancel, onDelete }) {
   const [config, setConfig] = useState({
     name: project?.name || '',
-    gitlabUrl: project?.gitlabUrl || 'https://gitlab.com',
+    gitlabUrl: project?.gitlabUrl || '',
     token: project?.token || '',
     projectId: project?.projectId || ''
   })
   const [testing, setTesting] = useState(false)
   const [testResult, setTestResult] = useState(null)
   const [saving, setSaving] = useState(false)
+  const tokenUrlBase = (config.gitlabUrl || '').trim().replace(/\/+$/, '') || 'https://gitlab.com'
+  const tokenUrl = `${tokenUrlBase}/-/user_settings/personal_access_tokens?name=GitLab+Issue+Generator&scopes=api`
 
   const handleTest = async () => {
     if (!config.gitlabUrl || !config.token || !config.projectId) {
@@ -101,13 +103,16 @@ function ProjectForm({ project, onSave, onCancel, onDelete }) {
         <p className="text-xs text-slate-500 mt-1.5">
           需要 <code className="bg-slate-100 px-1 py-0.5 rounded text-violet-600">api</code> 权限范围。{' '}
           <a
-            href="https://docs.gitlab.com/ee/user/profile/personal_access_tokens.html"
+            href={tokenUrl}
             target="_blank"
             rel="noopener noreferrer"
             className="text-violet-600 hover:underline inline-flex items-center gap-0.5"
           >
-            查看文档 <ExternalLink className="w-3 h-3" />
+            打开 Token 页面 <ExternalLink className="w-3 h-3" />
           </a>
+          <span className="block mt-1">
+            打开后勾选 api，点击 Create personal access token，然后复制生成的 Token。
+          </span>
         </p>
       </div>
 
@@ -186,7 +191,7 @@ function ProjectForm({ project, onSave, onCancel, onDelete }) {
   )
 }
 
-function ProjectItem({ project, onEdit, onDelete }) {
+function ProjectItem({ project, isCurrent, onSelect, onEdit, onDelete }) {
   return (
     <div className="flex items-center justify-between p-4 bg-slate-50 rounded-xl border border-slate-200 hover:border-violet-300 transition-colors group">
       <div className="flex-1 min-w-0">
@@ -195,7 +200,23 @@ function ProjectItem({ project, onEdit, onDelete }) {
           {project.projectId}
         </div>
       </div>
-      <div className="flex gap-1 ml-3 opacity-0 group-hover:opacity-100 transition-opacity">
+      <div className="flex items-center gap-2 ml-3">
+        {isCurrent ? (
+          <span className="text-xs font-medium text-violet-700 bg-violet-100 px-2 py-1 rounded-full">
+            当前
+          </span>
+        ) : (
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => onSelect?.(project)}
+            className="text-violet-600 hover:text-violet-700 hover:bg-violet-50"
+          >
+            切换
+          </Button>
+        )}
+      </div>
+      <div className="flex gap-1 ml-2 opacity-0 group-hover:opacity-100 transition-opacity">
         <Button variant="ghost" size="sm" onClick={() => onEdit(project)} className="text-slate-600 hover:text-slate-900">
           编辑
         </Button>
@@ -212,10 +233,18 @@ function ProjectItem({ project, onEdit, onDelete }) {
   )
 }
 
-export function GitLabSettings({ open, onClose, onProjectsChange }) {
+export function GitLabSettings({ open, onClose, onProjectsChange, selectedProject, onSelectProject }) {
   const [projects, setProjects] = useState([])
   const [editingProject, setEditingProject] = useState(null)
   const [showAddForm, setShowAddForm] = useState(false)
+  const formatHost = (url) => {
+    if (!url) return ''
+    try {
+      return new URL(url).host
+    } catch {
+      return url.replace(/^https?:\/\//, '').replace(/\/+$/, '')
+    }
+  }
 
   useEffect(() => {
     if (open) {
@@ -246,6 +275,11 @@ export function GitLabSettings({ open, onClose, onProjectsChange }) {
     setShowAddForm(false)
   }
 
+  const handleSelectProject = (project) => {
+    onSelectProject?.(project)
+    onClose?.()
+  }
+
   if (!open) return null
 
   return (
@@ -273,6 +307,15 @@ export function GitLabSettings({ open, onClose, onProjectsChange }) {
 
         {/* Content */}
         <div className="flex-1 overflow-auto p-6 space-y-4">
+          {selectedProject && (
+            <div className="rounded-xl border border-violet-100 bg-violet-50/60 px-4 py-3">
+              <p className="text-xs text-violet-600 font-medium">当前项目</p>
+              <p className="text-sm font-semibold text-slate-900 mt-1">{selectedProject.name}</p>
+              <p className="text-xs text-slate-600 mt-0.5">
+                {formatHost(selectedProject.gitlabUrl)} · {selectedProject.projectId}
+              </p>
+            </div>
+          )}
           <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-600">
             <p className="font-medium text-slate-700">配置指引</p>
             <p className="mt-1">
@@ -286,6 +329,8 @@ export function GitLabSettings({ open, onClose, onProjectsChange }) {
                 <ProjectItem
                   key={project.id}
                   project={project}
+                  isCurrent={selectedProject?.id === project.id}
+                  onSelect={handleSelectProject}
                   onEdit={setEditingProject}
                   onDelete={handleDelete}
                 />

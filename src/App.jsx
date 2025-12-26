@@ -5,6 +5,7 @@ import remarkGfm from 'remark-gfm'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { cn } from '@/lib/utils'
 import { generateIssueContent } from '@/lib/ai'
 import { useClipboardPaste, useCopyToClipboard } from '@/hooks/useClipboard'
@@ -38,6 +39,8 @@ function App() {
   const [editableContent, setEditableContent] = useState('')
   const [previewImage, setPreviewImage] = useState(null)
   const [showShortcuts, setShowShortcuts] = useState(false)
+  const [showSubmitPicker, setShowSubmitPicker] = useState(false)
+  const [pendingProject, setPendingProject] = useState(null)
 
   const copy = useCopyToClipboard()
 
@@ -45,9 +48,16 @@ function App() {
   const loadProjects = () => {
     const allProjects = getGitLabProjects()
     setProjects(allProjects)
-    if (!selectedProject || !allProjects.find(p => p.id === selectedProject.id)) {
-      setSelectedProject(allProjects[0] || null)
+    if (allProjects.length === 0) {
+      setSelectedProject(null)
+      return
     }
+    if (selectedProject) {
+      const matched = allProjects.find(p => p.id === selectedProject.id)
+      setSelectedProject(matched || allProjects[0] || null)
+      return
+    }
+    setSelectedProject(allProjects[0] || null)
   }
 
   useEffect(() => {
@@ -161,11 +171,11 @@ function App() {
   }
 
   // 提交到 GitLab
-  const handleSubmitToGitLab = async () => {
+  const submitIssueToGitLab = async (project) => {
     const content = previewMode === 'edit' ? editableContent : generatedContent
     if (!content) return
 
-    if (!selectedProject) {
+    if (!project) {
       setShowSettings(true)
       return
     }
@@ -178,20 +188,20 @@ function App() {
       const labels = extractLabelsFromContent(content)
       const issueDescription = getFullContent()
 
-      const issue = await createGitLabIssue({ title, description: issueDescription, labels, project: selectedProject })
+      const issue = await createGitLabIssue({ title, description: issueDescription, labels, project })
 
       // 保存到历史记录
       saveToHistory({
         title,
         content: issueDescription,
-        projectName: selectedProject.name,
+        projectName: project.name,
         issueUrl: issue.web_url,
         issueId: issue.iid
       })
 
       setSubmitResult({
         success: true,
-        message: `Issue #${issue.iid} 已提交到 ${selectedProject.name}`,
+        message: `Issue #${issue.iid} 已提交到 ${project.name}`,
         url: issue.web_url
       })
     } catch (err) {
@@ -201,6 +211,40 @@ function App() {
       })
     } finally {
       setIsSubmitting(false)
+    }
+  }
+
+  const handleSubmitClick = () => {
+    const content = previewMode === 'edit' ? editableContent : generatedContent
+    if (!content) return
+    if (projects.length === 0) {
+      setShowSettings(true)
+      return
+    }
+    if (projects.length > 1) {
+      const matched = selectedProject
+        ? projects.find(p => p.id === selectedProject.id)
+        : null
+      setPendingProject(matched || projects[0] || null)
+      setShowSubmitPicker(true)
+      return
+    }
+    submitIssueToGitLab(selectedProject || projects[0] || null)
+  }
+
+  const handleConfirmSubmit = () => {
+    if (!pendingProject) return
+    setShowSubmitPicker(false)
+    setSelectedProject(pendingProject)
+    submitIssueToGitLab(pendingProject)
+  }
+
+  const formatHost = (url) => {
+    if (!url) return ''
+    try {
+      return new URL(url).host
+    } catch {
+      return url.replace(/^https?:\/\//, '').replace(/\/+$/, '')
     }
   }
 
@@ -519,8 +563,8 @@ function App() {
                     />
                     <Button
                       size="sm"
-                      onClick={handleSubmitToGitLab}
-                      disabled={isSubmitting || !selectedProject}
+                      onClick={handleSubmitClick}
+                      disabled={isSubmitting}
                       className="rounded-full btn-premium px-5"
                     >
                       {isSubmitting ? (
@@ -731,7 +775,53 @@ function App() {
         open={showSettings}
         onClose={() => setShowSettings(false)}
         onProjectsChange={loadProjects}
+        selectedProject={selectedProject}
+        onSelectProject={setSelectedProject}
       />
+
+      {/* Submit Project Picker */}
+      <Dialog open={showSubmitPicker} onOpenChange={setShowSubmitPicker}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>选择提交项目</DialogTitle>
+            <DialogDescription>
+              请确认本次 Issue 要提交到哪个 GitLab 项目。
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-2 max-h-72 overflow-auto">
+            {projects.map(project => (
+              <button
+                key={project.id}
+                onClick={() => setPendingProject(project)}
+                className={cn(
+                  'w-full flex items-center justify-between px-4 py-3 rounded-xl border text-left transition-colors',
+                  pendingProject?.id === project.id
+                    ? 'border-violet-400 bg-violet-50'
+                    : 'border-slate-200 hover:border-violet-200 hover:bg-slate-50'
+                )}
+              >
+                <span className="min-w-0">
+                  <span className="block font-medium text-slate-900 truncate">{project.name}</span>
+                  <span className="block text-xs text-slate-500 truncate">
+                    {formatHost(project.gitlabUrl)} · {project.projectId}
+                  </span>
+                </span>
+                {pendingProject?.id === project.id && (
+                  <Check className="w-4 h-4 text-violet-600" />
+                )}
+              </button>
+            ))}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowSubmitPicker(false)}>
+              取消
+            </Button>
+            <Button onClick={handleConfirmSubmit} disabled={!pendingProject || isSubmitting}>
+              确认提交
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }
